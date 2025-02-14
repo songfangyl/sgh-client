@@ -65,22 +65,32 @@ export default function Featured({product}) {
     <Bg>
       <Center>
         <ColumnsWrapper>
-          <Column>
-            <div>
-              <Title>{product.title}</Title>
-              <Desc>{product.description}</Desc>
-              <ButtonsWrapper>
-                <ButtonLink href={'/product/'+product._id} outline={1} white={1}>Read more</ButtonLink>
-                <Button white onClick={addFeaturedToCart}>
-                  <CartIcon />
-                  Add to cart
-                </Button>
-              </ButtonsWrapper>
-            </div>
-          </Column>
-          <Column>
-            <img src="https://dawid-next-ecommerce.s3.amazonaws.com/1679151719649.png" alt=""/>
-          </Column>
+        {!product ? (
+            <Column>
+              <Title>Product not found</Title>
+              <Desc>The product you are looking for does not exist or is unavailable.</Desc>
+            </Column>
+          ) : (
+            <>
+              <Column>
+                <div>
+                  <Title>{product.title}</Title>
+                  <Desc>{product.description}</Desc>
+                  <ButtonsWrapper>
+                    <ButtonLink href={'/product/' + product._id} outline={1} white={1}>
+                      Read more
+                    </ButtonLink>
+                  </ButtonsWrapper>
+                </div>
+              </Column>
+              <Column>
+                <img
+                  src={product.images || "https://via.placeholder.com/150"} 
+                  alt={product.title || "Product Image"}
+                />
+              </Column>
+            </>
+          )}
         </ColumnsWrapper>
       </Center>
 

@@ -2,8 +2,8 @@ import Header from "@/components/Header";
 import styled from "styled-components";
 import Center from "@/components/Center";
 import Button from "@/components/Button";
-import {useContext, useEffect, useState} from "react";
-import {CartContext} from "@/components/CartContext";
+import { useContext, useEffect, useState } from "react";
+import { CartContext } from "@/components/CartContext";
 import axios from "axios";
 import Table from "@/components/Table";
 import Input from "@/components/Input";
@@ -33,7 +33,7 @@ const ProductImageBox = styled.div`
   height: 100px;
   padding: 2px;
   border: 1px solid rgba(0, 0, 0, 0.1);
-  display:flex;
+  display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
@@ -51,69 +51,47 @@ const ProductImageBox = styled.div`
     }
   }
 `;
-
-const QuantityLabel = styled.span`
-  padding: 0 15px;
-  display: block;
-  @media screen and (min-width: 768px) {
-    display: inline-block;
-    padding: 0 10px;
-  }
-`;
-
-const CityHolder = styled.div`
-  display:flex;
-  gap: 5px;
-`;
-
 export default function CartPage() {
-  const {cartProducts,addProduct,removeProduct,clearCart} = useContext(CartContext);
-  const [products,setProducts] = useState([]);
-  const [name,setName] = useState('');
-  const [email,setEmail] = useState('');
-  const [city,setCity] = useState('');
-  const [postalCode,setPostalCode] = useState('');
-  const [streetAddress,setStreetAddress] = useState('');
-  const [country,setCountry] = useState('');
-  const [isSuccess,setIsSuccess] = useState(false);
+  const { cartProducts, addProduct, removeProduct, clearCart } = useContext(CartContext);
+  const [products, setProducts] = useState([]);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
+
   useEffect(() => {
     if (cartProducts.length > 0) {
-      axios.post('/api/cart', {ids:cartProducts})
-        .then(response => {
-          setProducts(response.data);
-        })
+      axios.post("/api/cart", { ids: cartProducts }).then(response => {
+        setProducts(response.data);
+      });
     } else {
       setProducts([]);
     }
   }, [cartProducts]);
-  useEffect(() => {
-    if (typeof window === 'undefined') {
+
+  async function bookViewing() {
+    if (!selectedDate || !selectedTime) {
+      alert("Please select a date and time for booking.");
       return;
     }
-    if (window?.location.href.includes('success')) {
-      setIsSuccess(true);
-      clearCart();
+
+    try {
+      const response = await axios.post("/api/bookings", {
+        products: cartProducts,
+        date: selectedDate,
+        time: selectedTime,
+      });
+
+      if (response.status === 201) {
+        alert(`Booking confirmed for ${selectedDate} at ${selectedTime}.`);
+        setIsSuccess(true);
+        clearCart();
+      } else {
+        alert("Failed to book a viewing. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error booking:", error);
+      alert("An error occurred. Please try again.");
     }
-  }, []);
-  function moreOfThisProduct(id) {
-    addProduct(id);
-  }
-  function lessOfThisProduct(id) {
-    removeProduct(id);
-  }
-  async function goToPayment() {
-    const response = await axios.post('/api/checkout', {
-      name,email,city,postalCode,streetAddress,country,
-      cartProducts,
-    });
-    if (response.data.url) {
-      window.location = response.data.url;
-    }
-  }
-  let total = 0;
-  for (const productId of cartProducts) {
-    const price = products.find(p => p._id === productId)?.price || 0;
-    total += price;
   }
 
   if (isSuccess) {
@@ -123,14 +101,15 @@ export default function CartPage() {
         <Center>
           <ColumnsWrapper>
             <Box>
-              <h1>Thanks for your order!</h1>
-              <p>We will email you when your order will be sent.</p>
+              <h1>Booking Confirmed!</h1>
+              <p>We will contact you to confirm the appointment.</p>
             </Box>
           </ColumnsWrapper>
         </Center>
       </>
     );
   }
+
   return (
     <>
       <Header />
@@ -138,9 +117,7 @@ export default function CartPage() {
         <ColumnsWrapper>
           <Box>
             <h2>Cart</h2>
-            {!cartProducts?.length && (
-              <div>Your cart is empty</div>
-            )}
+            {!cartProducts?.length && <div>Your cart is empty</div>}
             {products?.length > 0 && (
               <Table>
                 <thead>
@@ -155,72 +132,28 @@ export default function CartPage() {
                     <tr key={product._id}>
                       <ProductInfoCell>
                         <ProductImageBox>
-                          <img src={product.images[0]} alt=""/>
+                          <img src={product.images[0]} alt="" />
                         </ProductImageBox>
                         {product.title}
                       </ProductInfoCell>
                       <td>
-                        <Button
-                          onClick={() => lessOfThisProduct(product._id)}>-</Button>
-                        <QuantityLabel>
-                          {cartProducts.filter(id => id === product._id).length}
-                        </QuantityLabel>
-                        <Button
-                          onClick={() => moreOfThisProduct(product._id)}>+</Button>
+                        <Button onClick={() => removeProduct(product._id)}>-</Button>
+                        {cartProducts.filter(id => id === product._id).length}
+                        <Button onClick={() => addProduct(product._id)}>+</Button>
                       </td>
-                      <td>
-                        ${cartProducts.filter(id => id === product._id).length * product.price}
-                      </td>
+                      <td>${cartProducts.filter(id => id === product._id).length * product.price}</td>
                     </tr>
                   ))}
-                  <tr>
-                    <td></td>
-                    <td></td>
-                    <td>${total}</td>
-                  </tr>
                 </tbody>
               </Table>
             )}
           </Box>
           {!!cartProducts?.length && (
             <Box>
-              <h2>Order information</h2>
-              <Input type="text"
-                     placeholder="Name"
-                     value={name}
-                     name="name"
-                     onChange={ev => setName(ev.target.value)} />
-              <Input type="text"
-                     placeholder="Email"
-                     value={email}
-                     name="email"
-                     onChange={ev => setEmail(ev.target.value)}/>
-              <CityHolder>
-                <Input type="text"
-                       placeholder="City"
-                       value={city}
-                       name="city"
-                       onChange={ev => setCity(ev.target.value)}/>
-                <Input type="text"
-                       placeholder="Postal Code"
-                       value={postalCode}
-                       name="postalCode"
-                       onChange={ev => setPostalCode(ev.target.value)}/>
-              </CityHolder>
-              <Input type="text"
-                     placeholder="Street Address"
-                     value={streetAddress}
-                     name="streetAddress"
-                     onChange={ev => setStreetAddress(ev.target.value)}/>
-              <Input type="text"
-                     placeholder="Country"
-                     value={country}
-                     name="country"
-                     onChange={ev => setCountry(ev.target.value)}/>
-              <Button black block
-                      onClick={goToPayment}>
-                Continue to payment
-              </Button>
+              <h2>Book a Viewing</h2>
+              <Input type="date" value={selectedDate} onChange={ev => setSelectedDate(ev.target.value)} />
+              <Input type="time" value={selectedTime} onChange={ev => setSelectedTime(ev.target.value)} />
+              <Button black block onClick={bookViewing}>Confirm Booking</Button>
             </Box>
           )}
         </ColumnsWrapper>
