@@ -18,12 +18,14 @@ export default function ProductsPage({products}) {
   );
 }
 
-export async function getServerSideProps() {
+export async function getStaticProps() {
   await mongooseConnect();
-  const products = await Product.find({}, null, {sort:{'_id':-1}});
+  const products = await Product.find({}, null, { sort: { '_id': -1 } }).lean();
+  
   return {
-    props:{
+    props: {
       products: JSON.parse(JSON.stringify(products)),
-    }
+    },
+    revalidate: 10, // Regenerates page every 10 seconds
   };
 }

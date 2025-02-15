@@ -104,7 +104,7 @@ export default function ProductPage({ product }) {
 
   const calculateLoan = () => {
     const loanAmount = product.price - downPayment;
-    const interestRate = 0.01;
+    const interestRate = 0.1;
     const monthlyRate = interestRate / 12;
     const months = years * 12;
     const payment = (loanAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months));

@@ -7,6 +7,7 @@ import { CartContext } from "@/components/CartContext";
 import axios from "axios";
 import Table from "@/components/Table";
 import Input from "@/components/Input";
+import Link from "next/link";
 
 const ColumnsWrapper = styled.div`
   display: grid;
@@ -51,20 +52,33 @@ const ProductImageBox = styled.div`
     }
   }
 `;
+
+const LoadingMessage = styled.p`
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #555;
+`;
+
+
 export default function CartPage() {
   const { cartProducts, addProduct, removeProduct, clearCart } = useContext(CartContext);
   const [products, setProducts] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (cartProducts.length > 0) {
       axios.post("/api/cart", { ids: cartProducts }).then(response => {
         setProducts(response.data);
+        setLoading(false);
       });
     } else {
       setProducts([]);
+      setLoading(false);
+
     }
   }, [cartProducts]);
 
@@ -117,8 +131,11 @@ export default function CartPage() {
         <ColumnsWrapper>
           <Box>
             <h2>Cart</h2>
-            {!cartProducts?.length && <div>Your cart is empty</div>}
-            {products?.length > 0 && (
+            {loading ? (
+              <LoadingMessage>Loading cart...</LoadingMessage>
+            ) : !cartProducts?.length ? (
+              <div>Your cart is empty</div>
+            ) : (
               <Table>
                 <thead>
                   <tr>
@@ -131,10 +148,12 @@ export default function CartPage() {
                   {products.map(product => (
                     <tr key={product._id}>
                       <ProductInfoCell>
-                        <ProductImageBox>
-                          <img src={product.images[0]} alt="" />
-                        </ProductImageBox>
-                        {product.title}
+                        <Link href={`/product/${product._id}`}>
+                          <ProductImageBox>
+                            <img src={product.images[0]} alt="" />
+                          </ProductImageBox>
+                          {product.title}
+                        </Link>
                       </ProductInfoCell>
                       <td>
                         <Button onClick={() => removeProduct(product._id)}>-</Button>
