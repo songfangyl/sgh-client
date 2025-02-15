@@ -1,8 +1,8 @@
 import { useContext, useState } from "react";
 import { useRouter } from "next/router";
+import useSWR from "swr";
+import axios from "axios";
 import { CartContext } from "@/components/CartContext";
-import { mongooseConnect } from "@/lib/mongoose";
-import { Product } from "@/models/Product";
 import styled from "styled-components";
 import Center from "@/components/Center";
 import Header from "@/components/Header";
@@ -95,69 +95,146 @@ const LoanCalculator = styled.div`
   }
 `;
 
-export default function ProductPage({ product }) {
-  const { addProduct } = useContext(CartContext);
+const fetcher = (url) => axios.get(url).then((res) => res.data);
+
+export default function ProductPage() {
   const router = useRouter();
+  const { id } = router.query;
+  const { addProduct } = useContext(CartContext);
+
+  // 1️⃣ Use SWR to fetch the product from our new API route
+  const { data: product, error, isLoading } = useSWR(
+    id ? `/api/product/${id}` : null,
+    fetcher
+  );
+
+  // States for loan calculator
   const [downPayment, setDownPayment] = useState(0);
   const [years, setYears] = useState(1);
   const [monthlyPayment, setMonthlyPayment] = useState(null);
 
   const calculateLoan = () => {
+    if (!product) return; // Safety check in case product isn't loaded yet
     const loanAmount = product.price - downPayment;
     const interestRate = 0.1;
     const monthlyRate = interestRate / 12;
     const months = years * 12;
-    const payment = (loanAmount * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -months));
+    const payment =
+      (loanAmount * monthlyRate) /
+      (1 - Math.pow(1 + monthlyRate, -months));
     setMonthlyPayment(payment.toFixed(2));
   };
 
+  // 2️⃣ Render loading/error states before showing product
   return (
     <>
       <Header />
       <Center>
         <PageWrapper>
           <BackButton onClick={() => router.back()}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 18l-6-6 6-6" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M15 18l-6-6 6-6"
+                stroke="black"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
           </BackButton>
-          <ColWrapper>
-            <WhiteBox>
-              <ProductImages images={product.images} />
-            </WhiteBox>
-            <div>
-              <Title>{product.title}</Title>
-              <p>{product.description}</p>
-              <PriceRow>
-                <Price>RM<big>{product.price}</big></Price>
-                <Button primary onClick={() => addProduct(product._id)}>
-                  <CartIcon /> Add to cart
-                </Button>
-              </PriceRow>
-              <LoanCalculator>
-                <h3>Loan Calculator</h3>
-                <label>Down Payment</label>
-                <input type="number" placeholder="Enter amount" value={downPayment} onChange={e => setDownPayment(e.target.value === '' ? '' : Number(e.target.value))}/>
-                <label>Loan Duration (years)</label>
-                <input type="number" placeholder="Enter years" value={years} onChange={e => setYears(e.target.value === '' ? '' : Number(e.target.value))} />
-                <Button onClick={calculateLoan}>Calculate</Button>
-                {monthlyPayment && <p><strong>Monthly Payment:</strong> RM{monthlyPayment}</p>}
-              </LoanCalculator>
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center h-60">
+              {/* Animated spinner */}
+              <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-500 mt-4 text-lg animate-fade-in">Loading product details...</p>
             </div>
-          </ColWrapper>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="flex flex-col items-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative w-full max-w-lg mx-auto shadow-md mt-6">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-8 h-8 text-red-600 mb-2"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" />
+              </svg>
+              <p className="font-semibold text-lg">Oops! Something went wrong.</p>
+              <p className="text-sm text-gray-600">Failed to load product. Please try again.</p>
+              <button 
+                onClick={() => mutate()} // Retry fetching data
+                className="mt-3 px-4 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600 transition"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* Product Content (only if we have `product`) */}
+          {product && !isLoading && !error && (
+            <ColWrapper>
+              <WhiteBox>
+                <ProductImages images={product.images} />
+              </WhiteBox>
+              <div>
+                <Title>{product.title}</Title>
+                <p>{product.description}</p>
+                <PriceRow>
+                  <Price>
+                    RM<big>{product.price}</big>
+                  </Price>
+                  <Button primary onClick={() => addProduct(product._id)}>
+                    <CartIcon /> Add to cart
+                  </Button>
+                </PriceRow>
+                <LoanCalculator>
+                  <h3>Loan Calculator</h3>
+                  <label>Down Payment</label>
+                  <input
+                    type="number"
+                    placeholder="Enter amount"
+                    value={downPayment}
+                    onChange={(e) =>
+                      setDownPayment(
+                        e.target.value === "" ? "" : Number(e.target.value)
+                      )
+                    }
+                  />
+                  <label>Loan Duration (years)</label>
+                  <input
+                    type="number"
+                    placeholder="Enter years"
+                    value={years}
+                    onChange={(e) =>
+                      setYears(
+                        e.target.value === "" ? "" : Number(e.target.value)
+                      )
+                    }
+                  />
+                  <Button onClick={calculateLoan}>Calculate</Button>
+                  {monthlyPayment && (
+                    <p>
+                      <strong>Monthly Payment:</strong> RM{monthlyPayment}
+                    </p>
+                  )}
+                </LoanCalculator>
+              </div>
+            </ColWrapper>
+          )}
         </PageWrapper>
       </Center>
     </>
   );
-}
-
-export async function getServerSideProps(context) {
-  await mongooseConnect();
-  const { id } = context.query;
-  const product = await Product.findById(id);
-  return {
-    props: {
-      product: JSON.parse(JSON.stringify(product)),
-    },
-  };
 }
